@@ -1,7 +1,13 @@
 import requests
 import time
 import serial
+import openai
 from datetime import datetime
+
+# Solicitar a chave da API ao usuário
+def obter_chave_api():
+    chave_api = input("Digite sua chave de API do OpenAI: ")
+    openai.api_key = chave_api
 
 def solicitar_configuracoes():
     cidade = input("Digite a cidade para monitoramento do clima: ")
@@ -62,31 +68,20 @@ def tomar_decisoes(dados_clima, dados_umidade_ar, dados_luminosidade, ser):
         print("Erro ao interpretar os dados coletados.")
         return
 
-    horario_atual = datetime.now().hour
-    log_action("Verificando condições...")
-
-    if temperatura > 30 and umidade_ar < 50:
-        log_action(f"Ativando irrigação (Temperatura: {temperatura}°C, Umidade: {umidade_ar}%)")
+    if temperatura > 30:
         enviar_para_arduino("irrigacao_ativar", ser)
-
-    if horario_atual > 18 and temperatura > 30 and luminosidade > 200:
-        log_action(f"Ativando ventilação (Hora: {horario_atual}:00, Temperatura: {temperatura}°C)")
+        log_action("Irrigação ativada devido à temperatura alta.")
+    elif temperatura < 15:
         enviar_para_arduino("ventilacao_ativar", ser)
+        log_action("Ventilação ativada devido à temperatura baixa.")
 
-    if luminosidade < 150:
-        log_action("Ativando luz artificial (Luminosidade baixa)")
-        enviar_para_arduino("iluminacao_ativar", ser)
-
-    if horario_atual == 6 and dados_clima[0].lower() == "clear":
-        log_action("Clima favorável para irrigação ao amanhecer")
+    if umidade_ar < 40:
         enviar_para_arduino("irrigacao_ativar", ser)
+        log_action("Irrigação ativada devido à baixa umidade do ar.")
 
-    if temperatura < 10 and umidade_ar > 90:
-        log_action(f"Temperatura baixa e umidade alta. Desligando ventilação.")
-        enviar_para_arduino("ventilacao_desligar", ser)
-        if luminosidade < 100:
-            log_action("Ativando iluminação para manter temperatura interna.")
-            enviar_para_arduino("iluminacao_ativar", ser)
+    if luminosidade < 300:
+        enviar_para_arduino("iluminacao_ativar", ser)
+        log_action("Iluminação ativada devido à baixa luminosidade.")
 
 def log_action(acao):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -102,6 +97,7 @@ def enviar_para_arduino(comando, ser):
         print("Erro na comunicação com o Arduino.")
 
 def executar_robo():
+    obter_chave_api()  # Solicitar a chave da API no início
     configuracoes = solicitar_configuracoes()
     cidade = configuracoes['cidade']
     latitude = configuracoes['latitude']
